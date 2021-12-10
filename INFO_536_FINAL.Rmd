@@ -1,0 +1,160 @@
+---
+title: "INFO_536_FINAL"
+author: "Shane Freeborn"
+output: html_document
+---
+
+## Introduction to the Project
+
+My main motivation behind this project was to evaluate the effect of social justice trends on social media and if they impact real change in our society. The main social justice trend I looked at was the Black Lives Matter movement, which is one of the biggest social movements in the past decade and has large social media presence.
+
+## Data Description
+
+Most of my data was acquired through the Washington Post's police shootings dashboard, the Open Policing Project (Stanford University) and a twitter analysis of the #blacklivesmatter trend as well as counter movements. This data ranges from 2015-2018. My initial intentions were to show the impacts of the 2020 police protests following the murder of George Floyd in police custody, but there was not sufficient police data from 2019 and beyond.
+
+The Washington Post data details every police shooting incident, in the line of duty. This data contains information the race of the victim, the circumstances of the shooting, and whether the person was armed. This data was collected through the FBI and CDC.
+
+The Open Policing Project data details traffic stop data. The data in this includes age, race, and the outcome of each traffic stop. I will use this to see if there is a trend in policing minorities and people of color throughout the years.
+
+Finally, the Twitter Data was collected through research done by Giorgi S, et al. This is a table that looks at data from 2013 through 2020. This data is used to track social media activity for BlackLivesMatter, BlueLivesMatter, and AllLivesMatter before and after police shooting incidents. This data was collected using Twitters API.
+
+## Data Modeling
+
+The relationships my model shows is the relationship between race and perceived threat level in instances where there has been a police shooting of a suspect.
+This allowed me to draw conclusions on the nature of these instances in order to predict social media trends following these shootings. In my research, those who support the Black Lives Matter movement generally protest police killings of unarmed black men and women (and children). When looking at this model, we can see that while there are by far more instances involving white suspects (make up majority of population in United States, ~70%), the second largest race shown is Black (who only make up 14% of the total population in the United States). The perceived threat level for unarmed black suspects is nearly as high as the white category as well. 
+
+When we look at the statistical breakdown of this linear model, we see that when a black suspect is armed they are 1.5x more likely to be perceived as an "attack" threat level as compared to white armed suspects. The race of the suspect is a higher indicator of threat rather than if the suspect is armed or not. This is shown when we look at the perceived threat level by race, regardless of them being armed or not. We still see that black suspects are seen as a greater threat to police officers then white suspects.
+```{r}
+library(tidyverse)
+police_incidents <- read.csv("data/fatal-police-shootings-data.csv")
+
+police_incidents <- police_incidents %>%
+  mutate(armed = case_when(armed != "unarmed" ~ "armed",
+                           armed == "unarmed" ~ "unarmed",
+                           armed == "undetermined" ~ "unknown"))
+police_incidents <- police_incidents %>%
+  mutate(threat_level = case_when(threat_level == "attack" ~ 1,
+                                  threat_level == "other" ~ 0,
+                                  threat_level == "undetermined" ~ 0))
+
+police_incidents %>%
+  group_by(manner_of_death) %>%
+  ggplot(aes(x = race,
+             y = armed
+             )) + 
+    geom_jitter(alpha = .5) +
+  geom_smooth(method = "lm")
+
+police_shootings_by_race_armed <- lm(threat_level ~ race + armed, data = police_incidents)
+summary(police_shootings_by_race_armed)
+
+police_shootings_by_race_armed %>%
+  ggplot(aes(x = race,
+             y = threat_level,
+             fill = armed)) + 
+  geom_col() + 
+  ggtitle("Perceived Threat Level by Race and Armed/Unarmed Status") + 
+  xlab("Race of Suspect") + 
+  ylab("Threat Level") +
+  scale_fill_manual(values = c("#145ac9", "#e07d19")) #colorblind accessibility
+
+police_shootings_by_race_armed
+
+police_shootings_by_race <- lm(threat_level ~ race, data = police_incidents)
+summary(police_shootings_by_race)
+
+#color changed for colorblind accessibility
+police_shootings_by_race %>%
+  ggplot(aes(x = race,
+             y = threat_level)) + 
+  geom_col(col = "#145ac9") +
+  ggtitle("Perceived Threat Level by Race") + 
+  xlab("Race of Suspect") + 
+  ylab("Threat Level")
+police_shootings_by_race
+```
+
+## Visualizing Twitter Data
+```{r}
+#Twitter Data Wrangling
+
+#Read in Data
+twitter_2015 <- read.csv("data/2015.csv")
+twitter_2016 <- read.csv("data/2016.csv")
+twitter_2017 <- read.csv("data/2017.csv")
+twitter_2018 <- read.csv("data/2018.csv")
+twitter_2019 <- read.csv("data/2019.csv")
+
+#Add Column Names to each dataset
+colnames(twitter_2015) <- c("ID","BlackLives", "BlueLives", "AllLives")
+colnames(twitter_2016) <- c("ID","BlackLives", "BlueLives", "AllLives")
+colnames(twitter_2017) <- c("ID","BlackLives", "BlueLives", "AllLives")
+colnames(twitter_2018) <- c("ID","BlackLives", "BlueLives", "AllLives")
+colnames(twitter_2019) <- c("ID","BlackLives", "BlueLives", "AllLives")
+
+#Add year as a column to help with analysis
+twitter_2015["Year"] = 2015
+twitter_2016["Year"] = 2016
+twitter_2017["Year"] = 2017
+twitter_2018["Year"] = 2018
+twitter_2019["Year"] = 2019
+
+
+all_twitter <- rbind(twitter_2015, twitter_2016, twitter_2017, twitter_2018, twitter_2019)
+
+
+twitter_sum <- all_twitter %>%
+  group_by(Year) %>%
+  summarise(BlackLives = sum(BlackLives),
+            BlueLives = sum(BlueLives),
+            AllLives = sum(AllLives))
+
+twitter_sum %>%
+  ggplot(aes(x = Year)) +
+  geom_line(aes(y = BlackLives)) + 
+  geom_line(aes(y = BlueLives), color = "#145ac9") + 
+  geom_line(aes(y = AllLives), color = "#e07d19") + 
+  ggtitle("Sum of Tweets in support of #BlackLivesMatter or popular Counter-Movements") +
+  ylab("Number of Tweets") + 
+  xlab("Year")
+
+
+```
+## Policing Data 2015-2019, Los Angeles, CA
+
+I chose Los Angeles as my city to view trends in policing for a few reasons. One is the size, population density, and diversity in Los Angeles. Beyond the demographic factors, Los Angeles was home to the Rodney King beating by the LAPD, which sparked protest in the 1990's, one of the more modern, and highly publicized, police protests against police brutality against black men and women.
+```{r}
+library(effects)
+la_police_data <- read.csv("data/ca_los_angeles_2020_04_01.csv")
+
+summary(la_police_data)
+
+#extract only year from police data
+la_police_data$date <- as.Date(la_police_data$date)
+
+la_police_data$year <- as.numeric(format(la_police_data$date, "%Y"))
+
+la_police_data_2015_2019 <- la_police_data %>%
+  filter(year %in% c(2015, 2016, 2017, 2018, 2019))
+
+la_police_data_2015_2019 %>%
+  ggplot(aes(x = year,
+             color = subject_race)) +
+  geom_histogram(binwidth = 1,
+                 position = "identity",
+                 alpha = .0) +
+  theme_linedraw() +
+  scale_y_continuous() + 
+  ggtitle("Police Stops by Race 2015-2018") +
+  xlab("Year") + 
+  ylab("count")
+  
+
+```
+## Conclusions
+
+Concluding my research, I found a relationship between social media police protests and actual policing reform, but I am not entirely convinced that this is representative of all of the nation and all instances of police shooting. The data I had was limited to the years of 2015-2019 and in turn it did not give me a full scope of the beginning of the BlackLivesMatter movement in 2013 up until 2021. I think seeing that almost 10 years of data could give us better information on police reform. I also feel that having better access to more location oriented twitter data would allow me to do a clear examination of 1 city or state as opposed to the entire nation. There are too many instances of police shootings of unarmed black men and women in so many part of the nation that may not catch social media attention, that I feel that like a case study of one section of the nation would be more revealing. 
+
+If anything the data I pulled still shows that there are deep rooted issues in our nations policing, in particular how we police minorities and people of color, that should be addressed. We see when looking at a city as large as Los Angeles, most of the police stops are of hispanic and black suspects, when more than 50% of the city is white. This inequality can be attributed to our model using the Washington Post data that highlights that black suspects are 1.5x more likely to be seen as a threat as compared to white suspects when police go out for a call. Finally, we can also see that with large movements on social media, such as BlackLivesMatter, there is an equally, if not larger, counter protest online that attempts to denigrate the BLM movement. 
+
+While we cannot see a strong enough connection between social media activism and real changes in policing, I do feel that these movements help spread awareness which gives police forces and government officials alike, the information they need to impact real change in our nation.
