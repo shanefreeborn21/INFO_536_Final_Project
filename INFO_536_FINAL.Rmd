@@ -1,5 +1,5 @@
 ---
-title: "INFO_536_FINAL"
+title: "Activism in the Information Age: How do social justice trends impact change?"
 author: "Shane Freeborn"
 output: html_document
 ---
